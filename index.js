@@ -51,7 +51,7 @@ app.post("/api/fetch-html", async (req, res) => {
     // Go to the URL with a long timeout, allow partial HTML if slow
     try {
       await page.goto(url, { waitUntil: "domcontentloaded", timeout: 90000 });
-      await page.waitForTimeout(8000); // allow dynamic modules to load
+      await page.waitForTimeout(12000); // allow dynamic modules to load
     } catch (e) {
       console.warn("⚠️ Page load exceeded timeout, returning partial HTML...");
     }
@@ -74,3 +74,4 @@ app.post("/api/fetch-html", async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`✅ fetch-html running on port ${PORT}`));
+
