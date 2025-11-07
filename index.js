@@ -20,8 +20,8 @@ app.post("/api/fetch-html", async (req, res) => {
     return res.status(400).json({ error: "Missing or invalid URL" });
 
   const execPath = process.env.CHROME_PATH || "/usr/bin/chromium";
-
   let browser;
+
   try {
     browser = await puppeteer.launch({
       executablePath: execPath,
@@ -42,36 +42,47 @@ app.post("/api/fetch-html", async (req, res) => {
 
     const page = await browser.newPage();
 
-    // Set UA *before* any navigation
+    // Block heavy resources to speed things up
+    await page.setRequestInterception(true);
+    page.on("request", (req) => {
+      const type = req.resourceType();
+      if (["image", "media", "font", "stylesheet"].includes(type)) {
+        req.abort();
+      } else {
+        req.continue();
+      }
+    });
+
     await page.setUserAgent(
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
         "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     );
 
-    // Go to the URL with a long timeout, allow partial HTML if slow
+    // Go quickly, don't wait for all requests
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 90000 });
+
+    // Wait up to 15 seconds for the concerts section
     try {
-      await page.goto(url, { waitUntil: "domcontentloaded", timeout: 90000 });
-      await page.waitForTimeout(12000); // allow dynamic modules to load
-    } catch (e) {
-      console.warn("⚠️ Page load exceeded timeout, returning partial HTML...");
+      await page.waitForSelector("ytmusic-ticket-shelf-renderer", { timeout: 15000 });
+      console.log("✅ Ticket shelf element detected");
+    } catch {
+      console.warn("⚠️ Ticket shelf not found in 15s; capturing partial HTML");
     }
 
-    const html = await page.content();
+    // Give 5 more seconds for JS injection
+    await page.waitForTimeout(5000);
 
-    // Clean up properly
+    const html = await page.content();
     await page.close();
     await browser.close();
 
     res.json({ html });
   } catch (err) {
     console.error("fetch-html error:", err);
-    try {
-      if (browser) await browser.close();
-    } catch {}
+    try { if (browser) await browser.close(); } catch {}
     res.status(500).json({ error: err.message || String(err) });
   }
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`✅ fetch-html running on port ${PORT}`));
-
