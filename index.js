@@ -16,6 +16,7 @@ app.post("/api/fetch-html", async (req, res) => {
     if (!provided || provided !== REQUIRED_API_KEY) {
       return res.status(403).json({ error: "Forbidden - invalid API key" });
     }
+    
 
     const { url } = req.body;
     if (!url) return res.status(400).json({ error: "Missing url in body" });
@@ -28,12 +29,19 @@ app.post("/api/fetch-html", async (req, res) => {
     // Determine executable path (set in Dockerfile as CHROME_PATH)
     const execPath = process.env.CHROME_PATH || "/usr/bin/chromium-browser";
 
-    // Launch puppeteer-core using the system chromium
     const browser = await puppeteer.launch({
-      executablePath: execPath,
-      args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
-      headless: true
-    });
+  executablePath: execPath,
+  headless: true,
+  args: [
+    "--no-sandbox",
+    "--disable-setuid-sandbox",
+    "--disable-dev-shm-usage",
+    "--disable-gpu",
+    "--no-zygote",
+    "--single-process"
+  ]
+});
+
 
     const page = await browser.newPage();
 
@@ -64,4 +72,5 @@ await page.waitForTimeout(5000); // give dynamic modules time to appear
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`✅ fetch-html running on port ${PORT}`));
+
 
