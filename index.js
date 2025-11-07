@@ -43,9 +43,14 @@ app.post("/api/fetch-html", async (req, res) => {
       " Chrome/120.0.0.0 Safari/537.36"
     );
 
-    // Navigate and wait for network idle then wait additional 5s
-    await page.goto(url, { waitUntil: "networkidle2", timeout: 30000 });
-    await page.waitForTimeout(5000); // give dynamic modules time to appear
+// Navigate and wait for network idle then wait additional 5s
+try {
+  await page.goto(url, { waitUntil: "networkidle2", timeout: 60000 });
+} catch (e) {
+  console.warn("⚠️ First attempt to load page timed out, retrying...");
+  await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
+}
+await page.waitForTimeout(5000); // give dynamic modules time to appear
 
     const html = await page.content();
     await browser.close();
@@ -59,3 +64,4 @@ app.post("/api/fetch-html", async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`✅ fetch-html running on port ${PORT}`));
+
