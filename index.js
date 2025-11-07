@@ -29,19 +29,22 @@ app.post("/api/fetch-html", async (req, res) => {
     // Determine executable path (set in Dockerfile as CHROME_PATH)
     const execPath = process.env.CHROME_PATH || "/usr/bin/chromium-browser";
 
-    const browser = await puppeteer.launch({
+const browser = await puppeteer.launch({
   executablePath: execPath,
-  headless: true,
+  headless: "new", // modern lightweight headless mode
   args: [
     "--no-sandbox",
     "--disable-setuid-sandbox",
     "--disable-dev-shm-usage",
     "--disable-gpu",
     "--no-zygote",
-    "--single-process"
+    "--single-process",
+    "--hide-scrollbars",
+    "--mute-audio",
+    "--no-first-run",
+    "--no-default-browser-check"
   ]
 });
-
 
     const page = await browser.newPage();
 
@@ -59,11 +62,18 @@ try {
   await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
 }
 await page.waitForTimeout(5000); // give dynamic modules time to appear
+    try {
+  await page.goto(url, { waitUntil: "domcontentloaded", timeout: 90000 });
+  await page.waitForTimeout(8000);
+} catch (e) {
+  console.warn("⚠️ Page load exceeded timeout, returning partial HTML...");
+}
 
-    const html = await page.content();
-    await browser.close();
 
-    res.json({ html });
+const html = await page.content();
+await page.close();
+await browser.close();
+res.json({ html });
   } catch (err) {
     console.error("fetch-html error:", err);
     res.status(500).json({ error: err.message || String(err) });
@@ -72,5 +82,6 @@ await page.waitForTimeout(5000); // give dynamic modules time to appear
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`✅ fetch-html running on port ${PORT}`));
+
 
 
